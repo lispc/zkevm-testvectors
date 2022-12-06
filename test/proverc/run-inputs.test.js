@@ -11,17 +11,20 @@ const { ethers } = require('ethers');
 const { toHexStringRlp } = require('@0xpolygonhermez/zkevm-commonjs').processorUtils;
 const { Scalar } = require('ffjavascript');
 
-const calldataInputsDir = path.join(__dirname, '../../inputs-executor');
+//const calldataInputsDir = path.join(__dirname, '../../inputs-executor');
+const calldataInputsDir = path.join(__dirname, "inputs");
 
 const EXECUTOR_PROTO_PATH = path.join(__dirname, '../../../zkevm-comms-protocol/proto/executor/v1/executor.proto');
 const DB_PROTO_PATH = path.join(__dirname, '../../../zkevm-comms-protocol/proto/statedb/v1/statedb.proto');
 
 const protoLoader = require('@grpc/proto-loader');
+require("util").inspect.defaultOptions.depth = null;
 
+const keepCase = true;
 const executorPackageDefinition = protoLoader.loadSync(
     EXECUTOR_PROTO_PATH,
     {
-        keepCase: true,
+        keepCase,
         longs: String,
         enums: String,
         defaults: true,
@@ -31,7 +34,7 @@ const executorPackageDefinition = protoLoader.loadSync(
 const dbPackageDefinition = protoLoader.loadSync(
     DB_PROTO_PATH,
     {
-        keepCase: true,
+        keepCase,
         longs: String,
         enums: String,
         defaults: true,
@@ -45,8 +48,8 @@ const { StateDBService } = stateDbProto;
 const fs = require('fs');
 const codes = require('./opcodes');
 
-const client = new ExecutorService('54.170.178.97:50071', grpc.credentials.createInsecure());
-const dbClient = new StateDBService('54.170.178.97:50061', grpc.credentials.createInsecure());
+const client = new ExecutorService('127.0.0.1:50071', grpc.credentials.createInsecure());
+const dbClient = new StateDBService('127.0.0.1:50061', grpc.credentials.createInsecure());
 let folders = [];
 const passedTests = [];
 const failedTests = [];
@@ -101,7 +104,7 @@ async function runTests(tests, pos, folderPos) {
         const test = tests[pos];
         const folder = folders[folderPos];
         const testPath = `${calldataInputsDir}/${folder}/${test}`;
-        const jsInput = JSON.parse(fs.readFileSync(testPath));
+        let  jsInput = JSON.parse(fs.readFileSync(testPath));
         // Populate db with input bytecode
         checkBytecode(jsInput, tests, pos, folderPos, 0);
     } catch (e) {
@@ -262,6 +265,7 @@ function checkResponse(input, res, test) {
         console.log(`${input.newStateRoot} /// 0x${res.new_state_root.toString('hex')}`);
         failedTests.push(test);
     } else {
+console.log("GAS_ROW", res.cumulative_gas_used, res.cnt_steps);
         console.log('\x1b[32m', `${test} passed`);
         passedTests.push(test);
     }
@@ -275,6 +279,7 @@ function checkResponse(input, res, test) {
  */
 function formatInput(jsInput) {
     return {
+	chain_id: jsInput.chainID,
         batch_num: jsInput.numBatch,
         coinbase: jsInput.sequencerAddr,
         batch_l2_data: Buffer.from(jsInput.batchL2Data.slice(2), 'hex'),
